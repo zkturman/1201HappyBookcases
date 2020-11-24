@@ -3,13 +3,18 @@
 #include <string.h>
 #include <ctype.h>
 #include <assert.h>
+#include "neillsimplescreen.h"
 
 #define EMPTY '.'
 #define NUMTYPES 9
+#define SEARCHMAX 7500000
+#define BUFFER 50
+#define MAXSHELVES 9
+#define REALLOC_PLUS 5
 
 /*delete this*/
-enum color {invalid = -1, empty, black, red, green, yellow, blue, magenta, cyan, white};
-typedef enum color color;
+enum index {invalid = -1, empty, blk, rd, grn, ylw, bl, mgnt, cyn, wht};
+typedef enum index index;
 
 enum bool {false, true};
 typedef enum bool bool;
@@ -37,14 +42,19 @@ typedef struct layer layer;
 struct problem {
    layer *start;
    bookcase *solution;
+   bool noSolution;
    int moves;
 };
 typedef struct problem problem;
 
-bookcase *processCaseFile();
 
-/*returns a happy child bookcase*/
-void makeHappy(problem *p);
+void printSolution(problem p, bool verbose);
+
+void printBookcase(bookcase *bc);
+
+void printBook(book b);
+
+bookcase *readFile(char *filename);
 
 bool isValid(book **books, int height, int width, int lineCount);
 
@@ -62,6 +72,9 @@ int *bookcaseHist(bookcase *bc, int numTypes);
 
 void buildSolutions(bookcase **bc, bookcase *solution);
 
+/*returns a happy child bookcase*/
+void makeHappy(problem *p);
+
 problem createProblem(bookcase *bc);
 
 layer *createLayer(layer **prev, bookcase *bc);
@@ -74,56 +87,98 @@ bool isHappy(bookcase *bc);
 /*Check if uniform shelf? If */
 bool isolatedColors(bookcase *bc);
 
+/*Returns true if the specified book exists in a string (shelf)*/
 bool isBookOnShelf(char *shelf, book b);
 
-/*is all of shelf the same as the first character? Can be done with a single loop*/
+/*Returns true if all books for this index (shelf) are the same.*/
+/*Also returns true if there are no books the shelf.*/
 bool uniformShelf(bookcase *bc, int shelf);
 
+/*Returns a new bookcase where the last book on oldShelf is moved to the first*/
+/*available position on newShelf.*/
 bookcase *moveBook(bookcase *bc, int oldShelf, int newShelf);
 
+/*Returns true for the following conditions:*/
+/*oldShelf is non-empty, containing something other than '.'*/
+/*newShelf is non-full, containing at least one '.'*/
 bool canMoveBook(bookcase *bc, int oldShelf, int newShelf);
 
+/*Returns the number of books for an index (shelf) of the bookcase's array*/
 int numBooks(bookcase *bc, int shelf);
 
+/*Determines if an index (shelf) for a bookcase is empty. Empty means there
+are only empty spaces('.') on the shelf.*/
 bool shelfEmpty(bookcase *bc, int shelf);
 
+/*Determines if a given shelf for a bookcase is full. Full means there are
+no empty spaces('.') on the shelf.*/
 bool shelfFull(bookcase *bc, int shelf);
 
+/*Initializes a bookcase pointer using an input ary and height/width*/
 bookcase *createBookcase(char **ary, int height, int width);
 
+/*Frees allocated memory for a struct pyramid*/
 void freeProblem(problem *p);
 
+/*Frees allocated memory for a struct layer*/
 void freeLayer(layer **y);
 
+/*Frees allocated memory for a struct bookcase*/
 void freeBookcase(bookcase **bc);
 
+/*Allocates memory and exits the program with an error if the requested*/
+/*memory couldn't be allocated.*/
 void *smartCalloc(int quant, int size);
 
+/*takes a string, prints it to stderr, and exits the program*/
+/*used to handle errors if the program cannot continue*/
 void errorQuit(char *message);
 
-color mapChars(char c);
+/*Uses an enum to index the different types of books*/
+/*Weird names used to avoid conflicts with neillcol*/
+index bookToIndex(char c);
 
+/*Used to get foreground color based on a type of book.*/
+neillcol bookToColor(book b);
+
+/*returns val raised to the exp*/
 int exponent(int val, int exp);
 
 void test();
 
-int main(void){
+int main(int argc, char **argv){
+   bool verbose;
+   bookcase *bc;
+   problem p;
    test();
+   if (argc == 2){
+      verbose = false;
+   }
+   else if (argc == 3 && strcmp(argv[2], "verbose") == 0){
+      verbose = true;
+   }
+   else{
+      errorQuit("Incorrect arguments...exiting\n");
+   }
+   bc = readFile(argv[1]);
+   p = createProblem(bc);
+   makeHappy(&p);
+   printSolution(p, verbose);
    return 0;
 }
 
 void test(){
    book **aryTest1, **emptyBooks;
-   bookcase *b1, *b2, *b3, *easyBc, *emptyBc, *happyBc, *bigBc, *scaryBc;
+   bookcase *b1, *b2, *b3, *easyBc, *emptyBc; /**happyBc, *bigBc, *scaryBc;*/
    layer *y1, *y2;
    problem p;
    int j, *hist;
-   assert(mapChars('c') == cyan);
-   assert(mapChars('b') == blue);
-   assert(mapChars('B') == blue);
-   assert(mapChars('k') == black);
-   assert(mapChars('.') == empty);
-   assert(mapChars(' ') == -1);
+   assert(bookToIndex('c') == cyn);
+   assert(bookToIndex('b') == bl);
+   assert(bookToIndex('B') == bl);
+   assert(bookToIndex('k') == blk);
+   assert(bookToIndex('.') == empty);
+   assert(bookToIndex(' ') == -1);
 
    aryTest1 = (book **) smartCalloc(3, sizeof(book *));
    /*should quit instead if smartCalloc fails*/
@@ -244,28 +299,28 @@ void test(){
    easyBc = moveBook(b3, 2, 0);
    p = createProblem(easyBc);
    makeHappy(&p);
-   assert(p.moves == 1);
+   assert(p.moves == 2);
    freeProblem(&p);
    p = createProblem(b3);
    makeHappy(&p);
-   assert(p.moves == 2);
+   assert(p.moves == 3);
    freeProblem(&p);
    p = createProblem(b1);
    makeHappy(&p);
-   assert(p.moves ==4);
+   assert(p.moves == 5);
    assert(isHappy(p.solution) == true);
    assert(isHappy(p.solution->prev) == false);
 
    /*test colors and solvability*/
    hist = bookcaseHist(p.solution, NUMTYPES);
-   assert(hist[blue] == 3);
-   assert(hist[red] == 2);
+   assert(hist[bl] == 3);
+   assert(hist[rd] == 2);
    free(hist);
    strcpy(b1->ary[1], "YW.");
    hist = bookcaseHist(b1, NUMTYPES);
-   assert(hist[yellow] == 1);
-   assert(hist[white] == 1);
-   assert(hist[black] == 0);
+   assert(hist[ylw] == 1);
+   assert(hist[wht] == 1);
+   assert(hist[blk] == 0);
    assert(isDoomed(b1, NUMTYPES) == true);
    assert(validColors(b1->ary, 3, 3) == true);
    free(hist);
@@ -298,7 +353,9 @@ void test(){
    assert(isValid(b1->ary, 3, 3, 3) == false);
    assert(isValid(b1->ary, -1, 3, 3) == false);
 
-
+   assert(bookToColor('k') == black);
+   assert(bookToColor('K') == black);
+   assert(bookToColor('b') == blue);
 
    /*freeBookcase(&b1);*/
    free(hist);
@@ -308,15 +365,90 @@ void test(){
    /*freeLayer(&y2);*/
 }
 
-void printSolution(problem p);
+void printSolution(problem p, bool verbose){
+   bookcase *current;
+   if (p.noSolution == true){
+      fprintf(stdout, "No solution?\n");
 
-void printBookcase(bookcase *bc);
+   }
+   else{
+      fprintf(stdout, "%d\n\n", p.moves);
+      if (verbose == true){
+         current = p.solution;
+         while(current->prev != NULL){
+            printBookcase(current);
+            current = current->prev;
+         }
+         printBookcase(current);
+      }
+   }
+}
 
-void readFile(char *filename){
-   
+void printBookcase(bookcase *bc){
+   int j, i;
+   for (j = 0; j < bc->height; j++){
+      for (i = 0; i < bc->width; i++){
+         printBook(bc->ary[j][i]);
+      }
+      fprintf(stdout, "\n");
+   }
+   fprintf(stdout, "\n");
+}
+
+void printBook(book b){
+   neillcol nc;
+   nc = bookToColor(b);
+   if (nc == black){
+      neillbgcol(white);
+   }
+   neillfgcol(nc);
+   fprintf(stdout, "%c", b);
+   neillfgcol(white);
+   neillbgcol(black);
+}
+
+bookcase *readFile(char *filename){
+   char **ary, str[BUFFER];
+   FILE *fp;
+   int height, width, guess, lineCount = 0;
+   int size = 0, shelfFactor = MAXSHELVES;
+   bookcase *bc;
+   ary = (char **)smartCalloc(shelfFactor, sizeof(char *));
+   if ((fp = fopen(filename, "r")) == NULL){
+      errorQuit("Could not open file...exiting\n");
+   }
+   while ((fgets(str, BUFFER, fp)) != NULL){
+      lineCount++;
+      if (lineCount == 1){
+         if (sscanf(str, "%d %d %d\n", &height, &width, &guess) != 3){
+            if (sscanf(str, "%d %d\n", &height, &width) != 2){
+               errorQuit("Could not read parameter from file... exiting\n");
+            }
+         }
+      }
+      else{
+         if (sscanf(str, "%s\n", str) != 1){
+            errorQuit("Could not read shelf of books... exiting\n");
+         }
+         if (size >= shelfFactor){
+            shelfFactor += REALLOC_PLUS;
+            ary = realloc(ary, shelfFactor * sizeof(char *));
+         }
+         ary[size] = (char *)smartCalloc(strlen(str) + 1, sizeof(char));
+         strcpy(ary[size++], str);
+      }
+   }
+   if (isValid(ary, height, width, lineCount) == false){
+      errorQuit("Invalid file formatting... exiting\n");
+   }
+   bc = createBookcase(ary, height, width);
+   return bc;
 }
 
 bool isValid(book **books, int height, int width, int lineCount){
+   if (lineCount == 0){
+      return false;
+   }
    if (height > 9 || width > 9){
       return false;
    }
@@ -340,8 +472,7 @@ bool isValidHeight(int height, int lineCount){
 }
 
 bool isValidWidth(book **books, unsigned int height, unsigned int width){
-   int j, i = 0;
-   book b;
+   int j;
    for (j = 0; j < height; j++){
       if (strlen(books[j]) != width){
          return false;
@@ -354,7 +485,7 @@ bool validColors(book **books, int height, int width){
    int j, i;
    for (j = 0; j < height; j++){
       for (i = 0; i < width; i++){
-         if (mapChars(books[j][i]) == -1){
+         if (bookToIndex(books[j][i]) == -1){
             return false;
          }
       }
@@ -366,7 +497,7 @@ bool isDoomed(bookcase *bc, int numTypes){
    int i, *hist, sum = 0;
    hist = bookcaseHist(bc, numTypes);
    /*ignore empty, so start at black*/
-   for (i = black; i < numTypes; i++){
+   for (i = blk; i < numTypes; i++){
       if (hist[i] > bc->width){
          free(hist);
          return true;
@@ -385,12 +516,12 @@ bool isDoomed(bookcase *bc, int numTypes){
 
 int *bookcaseHist(bookcase *bc, int numTypes){
    int *hist, j, i;
-   color c;
+   index n;
    hist = (int *) smartCalloc(numTypes, sizeof(int));
    for (j = 0; j < bc->height; j++){
       for (i = 0; i < bc->width; i++){
-         c = mapChars(bc->ary[j][i]);
-         hist[c] += 1;
+         n = bookToIndex(bc->ary[j][i]);
+         hist[n] += 1;
       }
    }
    return hist;
@@ -400,15 +531,19 @@ int *bookcaseHist(bookcase *bc, int numTypes){
 void flipStructure(bookcase **bc, bookcase *solution);
 
 void makeHappy(problem *p){
-   bool flag = false;
    layer *y;
    y = p->start;
-   while (y->solution == NULL){
-      flag = createChildren(&y);
+   while (y->solution == NULL && y->size < SEARCHMAX){
+      createChildren(&y);
       y = y->next;
    }
-   p->moves = y->generation;
-   p->solution = y->solution;
+   if (y->size >= SEARCHMAX){
+      p->noSolution = true;
+   }
+   else{
+      p->moves = y->generation + 1;
+      p->solution = y->solution;
+   }
 }
 
 problem createProblem(bookcase *bc){
@@ -417,14 +552,14 @@ problem createProblem(bookcase *bc){
    y = NULL;
    y = createLayer(&y, bc);
    p.start = y;
-   p.moves = 0;
+   p.moves = 1;
    return p;
 }
 
 bool createChildren(layer **y){
    layer *nextY;
-   int j1, j2, j3, i, i2, counter = 0;
-   bookcase *bc;
+   int j1, j2, i, counter = 0;
+   bookcase *bc, **newSibs;
    bc = (*y)->siblings[0];
    nextY = createLayer(y, bc);
    for (i = 0; i < (*y)->size; i++){
@@ -432,8 +567,6 @@ bool createChildren(layer **y){
          for (j2 = 0; j2 < bc->height; j2++){
             if (j1 != j2 && canMoveBook((*y)->siblings[i], j1, j2) == true){
                nextY->siblings[counter] = moveBook((*y)->siblings[i], j1, j2);
-               for (j3 = 0; j3 < bc->height; j3++){
-               }
                if (isHappy(nextY->siblings[counter]) == true){
                   nextY->solution = nextY->siblings[counter];
                   nextY->siblings = realloc(nextY->siblings, sizeof(*bc) * ++counter);
@@ -486,14 +619,14 @@ bool isHappy(bookcase *bc){
 }
 
 bool isolatedColors(bookcase *bc){
-   int j1, j2, i;
+   int shelfLoop1, shelfLoop2, i;
    book b;
-   for (j1 = 0; j1 < bc->height; j1++){
+   for (shelfLoop1 = 0; shelfLoop1 < bc->height; shelfLoop1++){
       for (i = 0; i < bc->width ; i++){
-         b = bc->ary[j1][i];
-         for (j2 = 0; j2 < bc->height; j2++){
-            if (b != '.' && j2 != j1){
-               if (isBookOnShelf(bc->ary[j2], b) == true){
+         b = bc->ary[shelfLoop1][i];
+         for (shelfLoop2 = 0; shelfLoop2 < bc->height; shelfLoop2++){
+            if (b != '.' && (shelfLoop2 != shelfLoop1)){
+               if (isBookOnShelf(bc->ary[shelfLoop2], b) == true){
                   return false;
                }
             }
@@ -504,11 +637,12 @@ bool isolatedColors(bookcase *bc){
 }
 
 bool isBookOnShelf(char *shelf, book b){
-   int i;
-   for (i = 0; shelf[i] != '\0'; i++){
+   int i = 0;
+   while (shelf[i] != '\0'){
       if(shelf[i] == b){
          return true;
       }
+      i++;
    }
    return false;
 }
@@ -521,7 +655,8 @@ bool uniformShelf(bookcase *bc, int shelf){
       if (c != curBook){
          return false;
       }
-      curBook = bc->ary[shelf][++i];
+      i++;
+      curBook = bc->ary[shelf][i];
    }
    return true;
 }
@@ -562,7 +697,11 @@ int numBooks(bookcase *bc, int shelf){
    char c;
    do {
       c = bc->ary[shelf][i];
-   } while (c != '.' && ++i < bc->width);
+      if (c == EMPTY){
+         return i;
+      }
+      i++;
+   } while (i < bc->width);
    return i;
 }
 
@@ -578,11 +717,12 @@ bool shelfFull(bookcase *bc, int shelf){
    char c;
    do {
       c = bc->ary[shelf][i];
-   } while (c != '.' && ++i < bc->width);
-   if (i == bc->width){
-      return true;
-   }
-   return false;
+      if (c == EMPTY){
+         return false;
+      }
+      i++;
+   } while (i < bc->width);
+   return true;
 }
 
 bookcase *createBookcase(char **ary, int height, int width){
@@ -623,8 +763,6 @@ void freeBookcase(bookcase **bc){
    free(*bc);
 }
 
-void quitRealloc();
-
 void *smartCalloc(int quant, int size){
    void *v = calloc(quant, size);
    if (v == NULL){
@@ -638,9 +776,35 @@ void errorQuit(char *message){
    exit(EXIT_FAILURE);
 }
 
-color mapChars(char c){
-   c = toupper(c);
-   switch(c){
+index bookToIndex(book b){
+   b = toupper(b);
+   switch(b){
+      case 'K':
+         return blk;
+      case 'R':
+         return rd;
+      case 'G':
+         return grn;
+      case 'Y':
+         return ylw;
+      case 'B':
+         return bl;
+      case 'M':
+         return mgnt;
+      case 'C':
+         return cyn;
+      case 'W':
+         return wht;
+      case '.':
+         return empty;
+      default: /*exit here instead of is valid?*/
+         return -1;
+   }
+}
+
+neillcol bookToColor(book b){
+   b = toupper(b);
+   switch(b){
       case 'K':
          return black;
       case 'R':
@@ -655,12 +819,8 @@ color mapChars(char c){
          return magenta;
       case 'C':
          return cyan;
-      case 'W':
+      default:
          return white;
-      case '.':
-         return empty;
-      default: /*exit here instead of is valid?*/
-         return -1;
    }
 }
 
