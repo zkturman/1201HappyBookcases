@@ -810,6 +810,7 @@ void test(){
    p = createProblem(b2);
    createChildren(&(p.start));
    createChildren(&(p.start->next));
+   assert(p.start->next->size == 6);
    freeProblem(&p);
 
    /*for easier tracking: b1 = "RBB"
