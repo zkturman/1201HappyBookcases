@@ -5,21 +5,20 @@
 #include <assert.h>
 #include "neillsimplescreen.h"
 
+#define BOOKDIMEN 4
+#define WAITTIME 1.5
 #define EMPTY '.'
 #define BLANKCELL ' '
 #define NUMTYPES 9
-#define ARRAYCAP 7500000
-#define SEARCHMAX 24
-#define SEARCHRESET 6
 #define BUFFER 50
 #define MAXPARAMS 3
 #define MINPARAMS 2
 #define MAXSHELVES 9
 #define REALLOC_PLUS 5
-#define BOOKDIMEN 4
-#define WAITTIME 1.5
+#define ARRAYCAP 7500000
+#define SEARCHMAX 24
+#define SEARCHRESET 6
 
-/*delete this*/
 enum index {invalid = -1, empty, blk, rd, grn, ylw, bl, mgnt, cyn, wht};
 typedef enum index index;
 
@@ -60,28 +59,28 @@ typedef struct problem problem;
 
 /*Prints the number of moves needed to make a bookcase happy. The count starts
 from 1. E.g., if no moves are needed to make a bookcase happy, the number 1 will
-be printed. When verbose is true, the moves from start to the solution will be
+be printed. When verbose is true, the moves from start to solution will be
 printed to screen.*/
 void printSolution(problem p, bool verbose);
 
-/*Prints the steps taken for the solution.*/
+/*Prints the steps taken for the solution*/
 void printVerbose(problem p);
 
 /*Prints the contents of a bookcase to screen using neillsimplescreen for
 coloring. A blank line is printed at the end of each bookcase.*/
 void printBookcase(bookcase *bc);
 
-/*Prints a horizontal border for a bookcase color white.*/
+/*Prints a horizontal border for a bookcase color white*/
 void printCaseHorizontalBorder(int width);
 
-/*Prints a horizontal border for all books on a shelf of color black.*/
+/*Prints a horizontal border for all books on a shelf of color black*/
 void printBookHorizontalBorder(int width);
 
 /*Prints a horizontal border of a specified color for a width that is plus two
 to include corners of a box. The line prints to the terminal window.*/
 void printHorizontalBorder(int width, neillcol n);
 
-/*Prints a blank cell of a specified color to the terminal window.*/
+/*Prints a blank cell of a specified color to the terminal window*/
 void printBlankCell(neillcol n);
 
 /*Uses neillsimplescreen to print a book with its corresponding color.
@@ -101,7 +100,7 @@ Side effects: sets height, width, and guess*/
 void scanParameters(char *str, int *height, int *width, int *guess);
 
 /*Generates a filestream and handles any errors opening the file.*/
-FILE *smartFileRead(const char *filename);
+FILE *smartFileOpen(const char *filename);
 
 /*Returns true if a file has valid formatting. The line count should be greater
 than zero. The height and weight should each fall between 0 and 9. There should
@@ -109,64 +108,67 @@ be no books after an EMPTY gap. The parameters of the books should match those
 specified in height and width.*/
 bool isValid(book **books, int height, int width, int lineCount);
 
-/*Returns true if books never follow EMPTY gaps for any shelf in an array.*/
+/*Returns true if books never follow EMPTY gaps for any shelf in an array*/
 bool mindTheGap(book **books, int height, int width);
 
-/*Returns true if a given height matches a file's line count minus one.*/
+/*Returns true if a given height matches a file's line count minus one*/
 bool isValidHeight(int height, int lineCount);
 
-/*Returns true if all shelves of books in an array match a given width.*/
+/*Returns true if all shelves of books in an array match a given width*/
 bool isValidWidth(book **books, int height, int width);
 
 /*Returns true if all books in an array are defined in enum index*/
 bool validColors(book **books, int height, int width);
 
-/*Returns true if this bookcase cannot be made happy.*/
+/*Returns true if this bookcase cannot be made happy*/
 bool isDoomed(bookcase *bc, int numTypes);
 
-/*Generates a histogram for each type of book present on a bookcase.*/
+/*Generates a histogram for each type of book present on a bookcase*/
 int *bookcaseHist(bookcase *bc, int numTypes);
 
-/*Builds the steps in the opposite direction to make a doubly linked list.*/
+/*Builds solution steps in reverse to make a doubly linked list*/
 bookcase *buildReverse(bookcase **bc);
 
 /*Uses a breadth-first search to generate a happy bookcase. The search continues
-until a solution is found or the branching possibilities exceeds SEARCHMAX.*/
+until a solution is found or the steps taken meets SEARCHRESET. Then a best
+bookcase is used as an intermediate starting point to continue searching. The
+search will quit if SEARCHMAX steps are made.*/
 void makeHappy(problem *p);
 
-/*Returns the first bookcase found with the smallest difference between current
-and final scores.*/
+/*Returns the first bookcase found with the smallest difference between its
+score and final*/
 bookcase *findBestSibling(layer *y, int final);
 
-/*Resets the siblings of a layer to just the input bookcase. All other siblings
+/*Resets the siblings of a layer to only the input bookcase. All other siblings
 are freed.*/
 void resetBreadth(layer **y, bookcase *bc);
 
-/*Initializes a problem using a bookcase. Generates a layer as the starting
-point for generating a solution when making a happy bookcase.*/
+/*Initializes a problem using a bookcase. Generates a layer used as the start
+when generating a solution for a bookcase.*/
 problem createProblem(bookcase *bc);
 
 /*Generates all possible children moves from the siblings inside a layer. The
-function checks for valid moves and quits when a solution is found.*/
+function checks for valid moves and quits if a solution is found.*/
 bool createChildren(layer **y);
 
-/*Initializes a layer pointer using an input bookcase.*/
+/*Initializes a layer pointer using an input bookcase*/
 layer *createLayer(layer **prev, bookcase *bc);
 
-/*returns true if valid colors are used, the case is uniformly sorted*/
+/*Returns true if each shelf has a single color and if any given color is only
+found on a single shelf*/
 bool isHappy(bookcase *bc);
 
-/*Returns true if each color only occurs on a single shelf.*/
+/*Returns true if each color only occurs on a single shelf*/
 bool isolatedColors(bookcase *bc);
 
 /*Returns true if the specified book exists on the shelf*/
 bool isBookOnShelf(book *shelf, book b);
 
-/*Returns true if all books on the shelf are equal OR if the shelf is empty.*/
+/*Returns true if all books on the shelf are equal OR if the shelf is empty*/
 bool uniformShelf(bookcase *bc, int shelf);
 
-/*Returns a new bookcase after the last book on the old helf is moved to the
-first available position on the new shelf.*/
+/*Returns a new bookcase with the last book on the old shelf moved to the
+first available position on the new shelf*/
 bookcase *moveBook(bookcase *bc, int oldShelf, int newShelf);
 
 /*Returns true for the following conditions:*/
@@ -174,10 +176,10 @@ bookcase *moveBook(bookcase *bc, int oldShelf, int newShelf);
 /*newShelf is non-full, containing at least one '.'*/
 bool canMoveBook(bookcase *bc, int oldShelf, int newShelf);
 
-/*Returns the number of books for an index (shelf) of the bookcase's array*/
+/*Returns the number of books on a specified shelf*/
 int numBooks(bookcase *bc, int shelf);
 
-/*Determines if an index (shelf) for a bookcase is empty. Empty means there
+/*Determines if a shelf for a bookcase is empty. Empty means there
 are only empty spaces('.') on the shelf.*/
 bool shelfEmpty(bookcase *bc, int shelf);
 
@@ -185,18 +187,21 @@ bool shelfEmpty(bookcase *bc, int shelf);
 no empty spaces('.') on the shelf.*/
 bool shelfFull(bookcase *bc, int shelf);
 
-/*Initializes a bookcase pointer using an input ary and height/width*/
+/*Initializes a bookcase pointer using an input ary that is height x width*/
 bookcase *createBookcase(char **ary, int height, int width);
 
-/*Returns the total number of books in bookcase.*/
+/*Returns the total number of books in bookcase*/
 int createFinalScore(bookcase *bc);
 
-/*Returns the number of books in the correct position for a solution.*/
+/*Returns the number of books in the correct position for a solution*/
 int createCurrentScore(bookcase *bc);
 
-/*Assigns rows in a bookcase to a color trying to guess a potential solution.*/
+/*Creates a solution map of colors. Each map index corresponds to a shelf in
+a bookcase. The values in a map indicate the color of each shelf in a solution.
+First, it picks colors in each shelf's first gap, then loops for the rest.*/
 book *createDestinationMap(book **books, int height, int width);
 
+/*Returns true if a book is already in the solution map*/
 bool inDestination(book *map, int size, book b);
 
 /*Frees allocated memory for a struct pyramid*/
@@ -208,8 +213,8 @@ void freeLayer(layer **y);
 /*Frees allocated memory for a struct bookcase*/
 void freeBookcase(bookcase **bc);
 
-/*Allocates memory and exits the program with an error if the requested
-memory couldn't be allocated.*/
+/*Allocates memory or exits the program with an error if the requested
+memory couldn't be allocated*/
 void *smartCalloc(int quant, int size);
 
 /*Prints a string to stderr, and exits the program*/
@@ -219,13 +224,13 @@ void errorQuit(char *message);
  to avoid conflicts with neillcol.*/
 index bookToIndex(book b);
 
-/*Used to get foreground color based on a type of book.*/
+/*Used to get foreground color based on a type of book*/
 neillcol bookToColor(book b);
 
-/*Returns a value raised to a specified exponent.*/
+/*Returns a value raised to a specified exponent*/
 int exponent(int val, int exp);
 
-/*Tests all non-printing and non-scanning functions.*/
+/*Tests all non-printing and non-scanning functions*/
 void test();
 
 int main(int argc, char **argv){
@@ -348,7 +353,7 @@ bookcase *readFile(const char *filename){
    int size = 0, shelfFactor = MAXSHELVES;
    bookcase *bc;
    books = (book **)smartCalloc(shelfFactor, sizeof(char *));
-   fp = smartFileRead(filename);
+   fp = smartFileOpen(filename);
    while ((fgets(str, BUFFER, fp)) != NULL){
       lineCount++;
       if (lineCount == 1){
@@ -362,6 +367,7 @@ bookcase *readFile(const char *filename){
       errorQuit("Invalid file formatting... exiting\n");
    }
    bc = createBookcase(books, shelves, gaps);
+   fclose(fp);
    return bc;
 }
 
@@ -385,7 +391,7 @@ void scanParameters(char *str, int *height, int *width, int *guess){
    }
 }
 
-FILE *smartFileRead(const char *filename){
+FILE *smartFileOpen(const char *filename){
    FILE *fp;
    if ((fp = fopen(filename, "r")) == NULL){
       errorQuit("Could not open file...exiting\n");
@@ -455,7 +461,7 @@ bool validColors(book **books, int height, int width){
    int shelf, gap;
    for (shelf = 0; shelf < height; shelf++){
       for (gap = 0; gap < width; gap++){
-         if (bookToIndex(books[shelf][gap]) == -1){
+         if (bookToIndex(books[shelf][gap]) == invalid){
             return false;
          }
       }
@@ -894,7 +900,7 @@ index bookToIndex(book b){
       case '.':
          return empty;
       default:
-         return -1;
+         return invalid;
    }
 }
 
@@ -942,7 +948,7 @@ void test(){
    assert(bookToIndex('B') == bl);
    assert(bookToIndex('k') == blk);
    assert(bookToIndex('.') == empty);
-   assert(bookToIndex(' ') == -1);
+   assert(bookToIndex(' ') == invalid);
 
    aryTest1 = (book **) smartCalloc(3, sizeof(book *));
    /*should quit instead if smartCalloc fails*/

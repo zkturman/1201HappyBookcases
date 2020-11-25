@@ -1,12 +1,16 @@
 CC=gcc
-#CFLAGS=-Wall -Wextra -pedantic -std=C90 -O3
-CFLAGS=-Wall -Wextra -Wfloat-equal -pedantic -std=c90 -g3 -fsanitize=undefined -fsanitize=address
-#CFLAGS=`sdl2-config --cflags` -O2 -Wall -Wextra -pedantic -Wfloat-equal -std=c90
+CFLAGS=-Wall -Wextra -Wfloat-equal -pedantic -std=c90 -O3
+#CFLAGS=-Wall -Wextra -Wfloat-equal -pedantic -std=c90 -g3 -fsanitize=undefined -fsanitize=address
+#CFLAGS=-Wall -Wextra -Wfloat-equal -pedantic -std=c90 -g3
 LDLIBS=-lm
-#LDLIBS=`sdl2-config --libs` -lm
 
-hb : hb.c neillsimplescreen.c neillsimplescreen.h
-	$(CC) hb.c neillsimplescreen.c -o hb $(CFLAGS) $(LDLIBS)
+hb : bookcase.c neillsimplescreen.c neillsimplescreen.h
+	$(CC) bookcase.c neillsimplescreen.c -o hb $(CFLAGS) $(LDLIBS)
 
 ext : extension.c neillsimplescreen.c neillsimplescreen.h
 	$(CC) extension.c neillsimplescreen.c -o ext $(CFLAGS) $(LDLIBS)
+
+
+valgrind:
+	valgrind --leak-check=full --show-leak-kinds=all ./hb
+	valgrind --leak-check=full --show-leak-kinds=all ./ext
