@@ -234,7 +234,7 @@ int exponent(int val, int exp);
 void test();
 
 int main(int argc, char **argv){
-   bool verbose;
+   bool verbose = false;
    bookcase *bc;
    problem p;
    test();
@@ -582,6 +582,7 @@ problem createProblem(bookcase *bc){
    y = createLayer(&y, bc);
    p.start = y;
    p.moves = 1;
+   p.noSolution = false;
    return p;
 }
 

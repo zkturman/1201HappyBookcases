@@ -11,6 +11,10 @@ ext : extension.c neillsimplescreen.c neillsimplescreen.h
 	$(CC) extension.c neillsimplescreen.c -o ext $(CFLAGS) $(LDLIBS)
 
 
-valgrind:
-	valgrind --leak-check=full --show-leak-kinds=all ./hb
-	valgrind --leak-check=full --show-leak-kinds=all ./ext
+valgrindhb:
+	$(CC) extension.c neillsimplescreen.c -o ext $(CFLAGS) $(LDLIBS)
+	valgrind --leak-check=full ./hb rggrcyyc-557.bc
+
+valgrindext:
+	$(CC) extension.c neillsimplescreen.c -o ext $(CFLAGS) $(LDLIBS)
+	valgrind --leak-check=full -s ./ext rggrcyyc-557.bc
