@@ -7,3 +7,6 @@ LDLIBS=-lm
 
 hb : hb.c neillsimplescreen.c neillsimplescreen.h
 	$(CC) hb.c neillsimplescreen.c -o hb $(CFLAGS) $(LDLIBS)
+
+ext : extension.c neillsimplescreen.c neillsimplescreen.h
+	$(CC) extension.c neillsimplescreen.c -o ext $(CFLAGS) $(LDLIBS)
