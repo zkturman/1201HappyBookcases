@@ -1,0 +1,57 @@
+***Overview of changes***
+
+Main advantages:
+-Program can run much longer.
+-Program mitigates memory issues.
+-Program can find previously unreachable solutions.
+-Time isn't wasted in some scenarios trying to solve an unsolvable problem.
+-The solution looks nicer.
+
+Main disadvantages:
+-Program can still take a long time to run.
+-Program cannot necessarily find the solution with least possible moves.
+-In more complex problems, this algorithm could still fail.
+-Program can find the bookcase with the closest score to final, but that
+	isn't necessarily the best choice.
+
+***Updated algorithm***
+
+In this extension of the Happy Bookcase assignment, I explore an additional
+change to the base algorithm. The breadth-first method we implemented in
+the base version of the assignment is guaranteed to find a solution for a 
+given problem in the least number of moves. It does this by exploring every
+possible move. However, as bookcases become more complicated and more possible
+moves arise, the breadth-first approach has a major drawback. It has literal
+system limits.
+
+Looking at bookcase arrangements, one would notice that some arragements are
+closer to a solution than others. I attempt to quantify this difference. 
+After assigning this map, I get a sum totalling how many books are already
+in a possible final position. This is the bookcase's current score.
+
+When creating children I have a soft threshold SEARCHRESET that triggers a 
+changes after creating a certain number of children. After a threshold is 
+met, the program finds a minimum scoring bookcase. All other children are 
+stripped away, and the search continues.
+
+With submitted parameters, extension.c can find a solution for
+rgmgrcycy-558.bc, but bookcase.c cannot. 
+
+***Further additions***
+
+I've also added an isDoomed function that prevents searching if a bookcase
+is valid (i.e. the file was correct), but a solution isn't possible with
+number of books or combination of book types.
+
+I've also changed the output to show each move separately stepwise until the
+solution. This also uses neillsimplescreen, but has an appearance similar to
+a bookcase.
+
+***Future improvements***
+
+-The scoring mechanism could be used to check other types of moves and whittle
+	down to a better choice for the new branch point.
+-The scoring mechanism could take into account multiple solutions.
+-The checking mechanism in isDoomed could be improved to identify other
+	unsolvable bookcases.
+-Printing could be moved to SDL.

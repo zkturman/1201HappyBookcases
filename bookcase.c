@@ -6,18 +6,13 @@
 #include "neillsimplescreen.h"
 
 #define EMPTY '.'
-#define BLANKCELL ' '
 #define NUMTYPES 9
-#define ARRAYCAP 7500000
-#define SEARCHMAX 24
-#define SEARCHRESET 6
+#define SEARCHMAX 7500000
 #define BUFFER 50
 #define MAXPARAMS 3
 #define MINPARAMS 2
 #define MAXSHELVES 9
 #define REALLOC_PLUS 5
-#define BOOKDIMEN 4
-#define WAITTIME 1.5
 
 /*delete this*/
 enum index {invalid = -1, empty, blk, rd, grn, ylw, bl, mgnt, cyn, wht};
@@ -32,9 +27,6 @@ struct bookcase {
    book **shelves;
    int height;
    int width;
-   book *destination;
-   book score;
-   book final;
    struct bookcase *prev;
    struct bookcase *next;
 };
@@ -52,7 +44,6 @@ typedef struct layer layer;
 struct problem {
    layer *start;
    bookcase *solution;
-   bookcase *puzzle;
    bool noSolution;
    int moves;
 };
@@ -60,29 +51,13 @@ typedef struct problem problem;
 
 /*Prints the number of moves needed to make a bookcase happy. The count starts
 from 1. E.g., if no moves are needed to make a bookcase happy, the number 1 will
-be printed. When verbose is true, the moves from start to the solution will be
-printed to screen.*/
+be printed. When verbose is true, the moves for the solution will be printed to
+screen in reverse order, with the original bookcase printed last.*/
 void printSolution(problem p, bool verbose);
-
-/*Prints the steps taken for the solution.*/
-void printVerbose(problem p);
 
 /*Prints the contents of a bookcase to screen using neillsimplescreen for
 coloring. A blank line is printed at the end of each bookcase.*/
 void printBookcase(bookcase *bc);
-
-/*Prints a horizontal border for a bookcase color white.*/
-void printCaseHorizontalBorder(int width);
-
-/*Prints a horizontal border for all books on a shelf of color black.*/
-void printBookHorizontalBorder(int width);
-
-/*Prints a horizontal border of a specified color for a width that is plus two
-to include corners of a box. The line prints to the terminal window.*/
-void printHorizontalBorder(int width, neillcol n);
-
-/*Prints a blank cell of a specified color to the terminal window.*/
-void printBlankCell(neillcol n);
 
 /*Uses neillsimplescreen to print a book with its corresponding color.
 For black books, the background color is changed to white.*/
@@ -121,26 +96,12 @@ bool isValidWidth(book **books, int height, int width);
 /*Returns true if all books in an array are defined in enum index*/
 bool validColors(book **books, int height, int width);
 
-/*Returns true if this bookcase cannot be made happy.*/
-bool isDoomed(bookcase *bc, int numTypes);
-
 /*Generates a histogram for each type of book present on a bookcase.*/
 int *bookcaseHist(bookcase *bc, int numTypes);
-
-/*Builds the steps in the opposite direction to make a doubly linked list.*/
-bookcase *buildReverse(bookcase **bc);
 
 /*Uses a breadth-first search to generate a happy bookcase. The search continues
 until a solution is found or the branching possibilities exceeds SEARCHMAX.*/
 void makeHappy(problem *p);
-
-/*Returns the first bookcase found with the smallest difference between current
-and final scores.*/
-bookcase *findBestSibling(layer *y, int final);
-
-/*Resets the siblings of a layer to just the input bookcase. All other siblings
-are freed.*/
-void resetBreadth(layer **y, bookcase *bc);
 
 /*Initializes a problem using a bookcase. Generates a layer as the starting
 point for generating a solution when making a happy bookcase.*/
@@ -187,17 +148,6 @@ bool shelfFull(bookcase *bc, int shelf);
 
 /*Initializes a bookcase pointer using an input ary and height/width*/
 bookcase *createBookcase(char **ary, int height, int width);
-
-/*Returns the total number of books in bookcase.*/
-int createFinalScore(bookcase *bc);
-
-/*Returns the number of books in the correct position for a solution.*/
-int createCurrentScore(bookcase *bc);
-
-/*Assigns rows in a bookcase to a color trying to guess a potential solution.*/
-book *createDestinationMap(book **books, int height, int width);
-
-bool inDestination(book *map, int size, book b);
 
 /*Frees allocated memory for a struct pyramid*/
 void freeProblem(problem *p);
@@ -251,92 +201,44 @@ int main(int argc, char **argv){
 }
 
 void printSolution(problem p, bool verbose){
+   bookcase *current;
    if (p.noSolution == true){
-      fprintf(stdout, "No solution?\n\n");
+      fprintf(stdout, "No solution?\n");
+
    }
    else{
+      fprintf(stdout, "%d\n\n", p.moves);
       if (verbose == true){
-         printVerbose(p);
+         current = p.solution;
+         while(current->prev != NULL){
+            printBookcase(current);
+            current = current->prev;
+         }
+         printBookcase(current);
       }
    }
-}
-
-void printVerbose(problem p){
-   bookcase *current;
-   int moves = 1;
-   current = p.puzzle;
-   neillclrscrn();
-   while(current != NULL){
-      neillcursorhome();
-      fprintf(stdout, "Total moves: %d\n", moves++);
-      printBookcase(current);
-      current = current->next;
-      neillbusywait(WAITTIME);
-   }
-   neillreset();
 }
 
 void printBookcase(bookcase *bc){
-   int shelf, gap, i;
-   printCaseHorizontalBorder(bc->width * BOOKDIMEN);
+   int shelf, gap;
    for (shelf = 0; shelf < bc->height; shelf++){
-      printBookHorizontalBorder(bc->width * BOOKDIMEN);
-      for (i = 0; i < BOOKDIMEN; i++){
-         printBlankCell(white);
-         for (gap = 0; gap < bc->width; gap++){
-            printBook(bc->shelves[shelf][gap]);
-         }
-         printBlankCell(white);
-         fprintf(stdout, "\n");
+      for (gap = 0; gap < bc->width; gap++){
+         printBook(bc->shelves[shelf][gap]);
       }
-      printBookHorizontalBorder(bc->width * BOOKDIMEN);
+      fprintf(stdout, "\n");
    }
-   printCaseHorizontalBorder(bc->width * BOOKDIMEN);
    fprintf(stdout, "\n");
-
-}
-
-void printCaseHorizontalBorder(int width){
-   printBlankCell(white);
-   printHorizontalBorder(width, white);
-   printBlankCell(white);
-   fprintf(stdout, "\n");
-}
-
-void printBookHorizontalBorder(int width){
-   printBlankCell(white);
-   printHorizontalBorder(width, black);
-   printBlankCell(white);
-   fprintf(stdout, "\n");
-}
-
-void printHorizontalBorder(int width, neillcol n){
-   int i;
-   for (i = 0; i < width; i++){
-      printBlankCell(n);
-   }
 }
 
 void printBook(book b){
    neillcol nc;
-   int i;
    nc = bookToColor(b);
-   printBlankCell(black);
    if (nc == black){
       neillbgcol(white);
    }
    neillfgcol(nc);
-   for (i = 1; i < BOOKDIMEN - 1; i++){
-      fprintf(stdout, "%c", b);
-   }
-   printBlankCell(black);
+   fprintf(stdout, "%c", b);
    neillfgcol(white);
-   neillbgcol(black);
-}
-
-void printBlankCell(neillcol n){
-   neillbgcol(n);
-   fprintf(stdout, "%c", BLANKCELL);
    neillbgcol(black);
 }
 
@@ -463,27 +365,6 @@ bool validColors(book **books, int height, int width){
    return true;
 }
 
-bool isDoomed(bookcase *bc, int numTypes){
-   int i, *hist, sum = 0;
-   hist = bookcaseHist(bc, numTypes);
-   /*ignore empty, so start at black*/
-   for (i = blk; i < numTypes; i++){
-      if (hist[i] > bc->width){
-         free(hist);
-         return true;
-      }
-      if (hist[i] > 0){
-         sum += 1;
-      }
-   }
-   if (sum > bc->height){
-      free(hist);
-      return true;
-   }
-   free(hist);
-   return false;
-}
-
 int *bookcaseHist(bookcase *bc, int numTypes){
    int *hist, shelf, gap;
    index n;
@@ -497,76 +378,25 @@ int *bookcaseHist(bookcase *bc, int numTypes){
    return hist;
 }
 
-bookcase *buildReverse(bookcase **bc){
-   bookcase *current, *tmp;
-   current = *bc;
-   while (current->prev != NULL){
-      tmp = current;
-      current = current->prev;
-      current->next = tmp;
-   }
-   return current;
-}
-
 void makeHappy(problem *p){
    layer *y;
-   bookcase *bc, *bestBookCase;
-   int counter = 0;
    y = p->start;
-   bc = y->siblings[0];
-   if (isDoomed(bc, NUMTYPES)){
-      p->noSolution = true;
-      return;
-   }
-   else if (isHappy(bc)){
-      y->solution = bc;
+   if (isHappy(y->siblings[0])){
+      y->solution = y->siblings[0];
    }
    else{
-      while (y->solution == NULL && counter < SEARCHMAX){
+      while (y->solution == NULL && y->size < SEARCHMAX){
          createChildren(&y);
          y = y->next;
-         counter++;
-         if (counter % SEARCHRESET == 0 || y->size > ARRAYCAP){
-            bestBookCase = findBestSibling(y, bc->final);
-            resetBreadth(&y, bestBookCase);
-         }
       }
    }
-   if (counter >= SEARCHMAX){
+   if (y->size >= SEARCHMAX){
       p->noSolution = true;
    }
    else{
-      p->moves = counter + 1;
+      p->moves = y->generation + 1;
       p->solution = y->solution;
-      p->puzzle = buildReverse(&p->solution);
    }
-}
-
-bookcase *findBestSibling(layer *y, int final){
-   int min, i = 0, curScore;
-   bookcase *minBc;
-   minBc = y->siblings[i];
-   min = final - minBc->score;
-   for (i = 0; i < y->size; i++){
-      curScore = y->siblings[i]->score;
-      if (final - curScore < min){
-         minBc = y->siblings[i];
-      }
-   }
-   return minBc;
-}
-
-void resetBreadth(layer **y, bookcase *bc){
-   int i;
-   for (i = 0; i < (*y)->size; i++){
-      if ((*y)->siblings[i] != bc){
-         freeBookcase(&(*y)->siblings[i]);
-      }
-   }
-   (*y)->siblings[0] = bc;
-   (*y)->siblings = realloc((*y)->siblings, sizeof(bookcase *));
-   (*y)->size = 1;
-   (*y)->generation = 0;
 }
 
 problem createProblem(bookcase *bc){
@@ -604,7 +434,7 @@ bool createChildren(layer **y){
          }
       }
    }
-   nextY->siblings = realloc(nextY->siblings, sizeof(*bc) * counter);
+   nextY->siblings = realloc(nextY->siblings, sizeof(bookcase *) * counter);
    nextY->size = counter;
    return false;
 }
@@ -756,77 +586,8 @@ bookcase *createBookcase(book **books, int height, int width){
    bc->shelves = books;
    bc->height = height;
    bc->width = width;
-   bc->destination = createDestinationMap(books, height, width);
-   bc->score = createCurrentScore(bc);
-   bc->final = createFinalScore(bc);
    bc->prev = NULL;
    return bc;
-}
-
-int createCurrentScore(bookcase *bc){
-   int shelf, gap;
-   int score = 0;
-   for (shelf = 0; shelf < bc->height; shelf++){
-      for (gap = 0; gap < bc->width; gap++){
-         if (bc->destination[shelf] == bc->shelves[shelf][gap]){
-            score += 1;
-         }
-      }
-   }
-   return score;
-}
-
-int createFinalScore(bookcase *bc){
-   int i, shelf, gap;
-   int final = 0;
-   for (i = 0; i < bc->height; i++){
-      for (shelf = 0; shelf < bc->height; shelf++){
-         for (gap = 0; gap < bc->width; gap++){
-            if (bc->destination[i] == bc->shelves[shelf][gap]){
-               final += 1;
-            }
-         }
-      }
-   }
-   return final;
-}
-
-book *createDestinationMap(book **books, int height, int width){
-   book *map, b;
-   int shelf, i, gap = 0;
-   map = (book *)smartCalloc(height, sizeof(book));
-   for(shelf = 0; shelf < height; shelf++){
-      if (isalpha(books[shelf][gap]) != 0){
-         if (inDestination(map, height, books[shelf][gap]) == false){
-            map[shelf] = books[shelf][gap];
-         }
-      }
-   }
-   for(shelf = 0; shelf < height; shelf++){
-      for (gap = 0; gap < width; gap++){
-         b = books[shelf][gap];
-         if (inDestination(map, height, b) == false
-            && isalpha(b) != 0){
-            for (i = 0; i < height; i++){
-               if (isalpha(map[i]) != 0){
-                  map[i] = b;
-               }
-            }
-         }
-      }
-   }
-   return map;
-}
-
-bool inDestination(book *map, int size, book b){
-   int i;
-   b = toupper(b);
-   for (i = 0; i < size; i++){
-      if (map[i] == b){
-         return true;
-      }
-   }
-   return false;
 }
 
 void freeProblem(problem *p){
@@ -855,7 +616,6 @@ void freeBookcase(bookcase **bc){
       free((*bc)->shelves[shelf]);
    }
    free((*bc)->shelves);
-   free((*bc)->destination);
    free(*bc);
 }
 
@@ -932,11 +692,11 @@ int exponent(int val, int exp){
 }
 
 void test(){
-   book **aryTest1, **emptyBooks, *destMap;
-   bookcase *b1, *b2, *b3, *b4, *easyBc, *emptyBc;
+   book **aryTest1, **emptyBooks;
+   bookcase *b1, *b2, *b3, *easyBc, *emptyBc;
    layer *y1, *y2;
    problem p;
-   int j, score, *hist;
+   int j, *hist;
    assert(bookToIndex('c') == cyn);
    assert(bookToIndex('b') == bl);
    assert(bookToIndex('B') == bl);
@@ -955,26 +715,10 @@ void test(){
    strcpy(aryTest1[1], "Y..");
    strcpy(aryTest1[2], "BR.");
 
-   destMap = (book *)smartCalloc(4, sizeof(book));
-   strcpy(destMap, "BY.");
-   assert(inDestination(destMap, 3, 'B') == true);
-   assert(inDestination(destMap, 3, 'b') == true);
-   assert(inDestination(destMap, 3, 'Z') == false);
-   assert(inDestination(destMap, 3, '.') == true);
-   free(destMap);
-   destMap = createDestinationMap(aryTest1, 3, 3);
-   assert(destMap[0] == 'R');
-   assert(destMap[1] == 'Y');
-   assert(destMap[2] == 'B');
-
    b1 = createBookcase(aryTest1, 3, 3);
    assert(strcmp(b1->shelves[0], aryTest1[0]) == 0);
    assert(b1->height == 3);
    assert(b1->width == 3);
-   score = createCurrentScore(b1);
-   assert(score = 3);
-   score = createFinalScore(b1);
-   assert(score == 5);
 
    b1->shelves[0][2] = 'B';
    assert(shelfFull(b1, 0) == true);
@@ -1066,42 +810,28 @@ void test(){
    p = createProblem(b2);
    createChildren(&(p.start));
    createChildren(&(p.start->next));
-   assert(p.start->next->size == 6);
-   resetBreadth(&(p.start), b2);
    freeProblem(&p);
 
    /*for easier tracking: b1 = "RBB"
                                "..."
                                "BR."
    */
-   assert(b1->score == 3);
+
    /*try finding solutions various steps away*/
    b2 = moveBook(b1, 0, 1);
    b3 = moveBook(b2, 0, 1);
    easyBc = moveBook(b3, 2, 0);
-   assert(easyBc->score == 4);
-   buildReverse(&easyBc);
-   /*testing chain rebuilt backwards*/
-   assert(strcmp(b3->shelves[0], easyBc->prev->shelves[0]) == 0);
-   assert(strcmp(b3->shelves[1], easyBc->prev->shelves[1]) == 0);
-   assert(strcmp(b3->shelves[2], easyBc->prev->shelves[2]) == 0);
    p = createProblem(easyBc);
-   p.puzzle = buildReverse(&easyBc);
-   assert(p.puzzle == b1);
    makeHappy(&p);
-   assert(p.moves >= 2);
-   y1 = p.start->next;
-   b4 = findBestSibling(y1, easyBc->final);
-   assert(b4->score == easyBc->final);
-
+   assert(p.moves == 2);
    freeProblem(&p);
    p = createProblem(b3);
    makeHappy(&p);
-   assert(p.moves >= 3);
+   assert(p.moves == 3);
    freeProblem(&p);
    p = createProblem(b1);
    makeHappy(&p);
-   assert(p.moves >= 5);
+   assert(p.moves == 5);
    assert(isHappy(p.solution) == true);
    assert(isHappy(p.solution->prev) == false);
 
@@ -1115,17 +845,14 @@ void test(){
    assert(hist[ylw] == 1);
    assert(hist[wht] == 1);
    assert(hist[blk] == 0);
-   assert(isDoomed(b1, NUMTYPES) == true);
    assert(validColors(b1->shelves, 3, 3) == true);
    free(hist);
    strcpy(b1->shelves[1], "RRR");
    hist = bookcaseHist(b1, NUMTYPES);
-   assert(isDoomed(b1, NUMTYPES) == true);
    assert(validColors(b1->shelves, 3, 3) == true);
    free(hist);
    hist = bookcaseHist(b1, NUMTYPES);
    strcpy(b1->shelves[1], "...");
-   assert(isDoomed(b1, NUMTYPES) == false);
    assert(validColors(b1->shelves, 3, 3) == true);
 
    strcpy(b1->shelves[1], "XXX");
@@ -1156,7 +883,6 @@ void test(){
    assert(bookToColor('K') == black);
    assert(bookToColor('b') == blue);
 
-   free(destMap);
    free(hist);
    freeBookcase(&b2);
    freeBookcase(&emptyBc);
